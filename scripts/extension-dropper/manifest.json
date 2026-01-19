@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "MFM Dropper",
+  "version": "0.0.1",
+  "description": "Send current page title/url/selection to my--father-mother /dropper",
+  "permissions": ["activeTab", "scripting", "contextMenus"],
+  "host_permissions": ["http://127.0.0.1:8765/*"],
+  "background": {
+    "service_worker": "worker.js"
+  },
+  "action": {
+    "default_title": "Send to MFM"
+  }
+}

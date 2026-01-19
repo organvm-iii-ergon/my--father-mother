@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "mfm semantic fetch",
+      "type": "shell",
+      "command": "${workspaceFolder}/my--father-mother/scripts/mfm-fetch.sh",
+      "args": ["--query", "${selectedText}", "--semantic", "--copy"],
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

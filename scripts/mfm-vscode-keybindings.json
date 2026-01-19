@@ -1,0 +1,8 @@
+[
+  {
+    "key": "ctrl+shift+m",
+    "command": "workbench.action.tasks.runTask",
+    "args": "mfm semantic fetch",
+    "when": "editorTextFocus && editorHasSelection"
+  }
+]

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.my-father-mother.serve</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>bash</string>
+        <string>-lc</string>
+        <string>cd "/Users/4jp/Workspace/my--father-mother" &amp;&amp; ./scripts/mfm-serve.sh</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PORT</key>
+        <string>8765</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/mfm-serve.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/mfm-serve.err</string>
+</dict>
+</plist>

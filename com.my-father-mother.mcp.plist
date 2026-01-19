@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.my-father-mother.mcp</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>python3</string>
+        <string>/Users/4jp/Workspace/my--father-mother/scripts/mcp_server.py</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>MFM_MCP_HOST</key>
+        <string>127.0.0.1</string>
+        <key>MFM_MCP_PORT</key>
+        <string>39300</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/mfm-mcp.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/mfm-mcp.err</string>
+</dict>
+</plist>
