@@ -1,281 +1,648 @@
-my--father-mother
-==================
+[![ORGAN-III: Ergon](https://img.shields.io/badge/ORGAN--III-Ergon-1b5e20?style=flat-square)](https://github.com/organvm-iii-ergon)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776ab?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](https://opensource.org/licenses/MIT)
+[![Local Only](https://img.shields.io/badge/Data-Local%20Only-2e7d32?style=flat-square)](https://github.com/organvm-iii-ergon/my--father-mother)
+[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-6a1b9a?style=flat-square)](https://github.com/organvm-iii-ergon/my--father-mother#mcp-bridge)
 
-Lightweight, local-only “long term memory” for your Mac clipboard. It listens to the system clipboard (same stream Paste sees), stores snippets in SQLite with full-text search, and lets you recall by keyword or recency. No cloud, no telemetry.
+# my--father-mother
 
-Personas and domains
-- Mother (moon): runs the watcher, records metadata, dedups, prunes to cap.
-- Father (sun): runs search, recent, delete, stats, blocklist management, and keeps the index healthy.
+**Local-only clipboard long-term memory for macOS.**
 
-What it does
-- Captures clipboard text with timestamp and frontmost app/window title metadata.
-- Deduplicates identical clips and caps history size (configurable).
-- SQLite store with FTS5 for fast keyword search, with filters by app/tag/substring.
-- Tags and pins for organizing; copy a stored clip back to clipboard.
-- Session notes: append per-clip notes (UI/CLI/API) and see them alongside results/topics.
-- Helper transforms: configurable rewrite/shorten/extract helpers that shell out to your scripts (stdin=clip, stdout=result), saved as new tagged clips.
-- Markdown journaling: export recent clips grouped by date/app/tags as an outline for your daily notes.
-- Optional sync push/pull to a path (e.g., iCloud Drive) and a SwiftBar menubar stub for quick glance.
-- Context bundles: `/context` + CLI `context` to dump recent clips for LLM sidecars by app/tag/time.
-- Configurable safety: skips secrets by default; set `allow_secrets` true to store everything. Max clip size defaults to 16KB; configurable.
-- Optional toasts: enable notifications to get a macOS banner when clips are saved or skipped.
-- Capture history: repeat sightings are logged; view with `history`.
-- Semantic search: hash-based by default; opt into `e5-small` embeddings (`config --set embedder e5-small`) for better meaning search.
-- Light language detection: a per-clip language code is stored for display/tooling.
-- Filters: date ranges (`--since/--since-hours/--until`), pin-only, app/tag filters in CLI/API/UI.
-- Topic buckets: group recent clips by tag (or app when untagged) via CLI/API/UI.
-- Caps: per-app/per-tag caps, tiered eviction (prefer non-pinned), DB cap with backpressure warnings.
-- Medium ingest: optional PDF ingest (`pdftotext`), optional OCR image ingest (`tesseract`), manual backup/restore.
-- Smart hooks: optional auto-summary/title and auto-tag via user-provided shell commands.
-- File inbox: ingest individual files or watch an inbox directory for text/code drops.
-- Meeting ingest: `ingest-transcript` tags meeting/transcript inputs automatically.
-- Simple federation: export/import endpoints (`/federate_export`, `/federate_import`), CLI `federate-export`, `federate-import` (path/url), and `federate-push` to send to a peer.
-- Recap: summarize last N minutes grouped by app (CLI `recap`, API `/recap`).
-- Minimal web UI: `serve` now serves `/` with a simple search/recent page.
-- Status indicator: the web UI calls `/status` to show paused/active + notify/secrets flags.
-- Settings parity snapshot: `settings` summarizes account/cloud/copilot/ML/UI/telemetry/about, with focused commands for copilot/ML/about.
-- Editor-friendly fetch: `scripts/mfm-fetch.sh` to grab latest/by-id/query to stdout or clipboard (use with IDE external tools).
-- IDE integration: bind `mfm-fetch.sh` to a hotkey/command in your editor (examples below).
-- Browser drop: POST `/ingest_url` (bookmarklet snippet below) to save the current page URL/title/selection into the store.
-- Browser dropper endpoint `/dropper` for extensions/contexts (title/url/selection/html payloads). Sample Chrome MV3 extension lives in `scripts/extension-dropper/`.
-- fzf palette: `scripts/mfm-fzf.sh` for an interactive picker in terminal.
-- rofi palette: `scripts/mfm-rofi.sh` for a GUI-ish picker (needs `rofi`).
-- Optional SwiftBar menubar snippet: `scripts/mfm-swiftbar.1s.sh` (reads `/status`, lists recent, copy/pin, pause/resume). If HTTP is blocked, set `MFM_FORCE_CLI=1` and `MFM_REPO_DIR=/Users/4jp/Workspace/my--father-mother`.
-- Integrations cookbook: see `INTEGRATIONS.md` for JetBrains/VS Code/Sublime/Obsidian/JupyterLab/Raycast/Chrome wiring examples.
-- MCP bridge: `scripts/mcp_server.py` exposes a minimal MCP-style server at `http://127.0.0.1:39300/model_context_protocol/2025-03-26/mcp` (resources: recent, context, search, SSE heartbeat).
-- LaunchAgent for MCP: `com.my-father-mother.mcp.plist` — copy to `~/Library/LaunchAgents/` and `launchctl load ~/Library/LaunchAgents/com.my-father-mother.mcp.plist` to auto-start the MCP bridge at login.
-- LaunchAgents summary: see `LAUNCH_AGENTS.md` for quick install/unload steps for watcher/serve/MCP.
-- Simple CLI:
-  - `init` to create the database
-  - `watch` to run the capture loop (Moon)
-  - `recent` to list latest items (Father)
-  - `search` to query by keyword (Father)
-  - `semantic-search` to query by meaning (hashed embeddings) (Father)
-  - `delete` to remove entries by id (Father)
-  - `stats` to show counts/db size (Father)
-  - `status` to show paused/notify/limits/db size (Father)
-  - `settings` to show settings parity snapshot (Father)
-  - `copilot` to manage copilot settings/chats (Father)
-  - `ml` to manage machine learning/LTM settings (Father)
-  - `mcp-urls` to print MCP server URLs (SSE + MCP)
-  - `about` to show app/runtime details (Father)
-  - `pause` to pause/resume/toggle capture (Mother)
-  - `blocklist` to add/remove/list blocked apps (Father)
-  - `pin` to pin/unpin clips (Father)
-  - `copy` to copy a stored clip back to clipboard (Father)
-  - `history` to show capture history for a clip (Father)
-  - `show` to print a specific clip (Father)
-  - `export` to JSON (Father)
-  - `export-md` to Markdown journal outline (Father)
-  - `config` to get/set max_bytes, max_db_mb, allow_secrets, notify, embedder (Father)
-  - `purge` to delete by age/app/keep-last/all (Father)
-  - `tags` to add/remove/list tags (Father)
-  - `note` to append/list session notes for a clip (Father)
-  - `ingest-file` to ingest a specific file (Mother)
-  - `ingest-transcript` to ingest a meeting transcript/text with meeting/transcript tags (Mother)
-  - `watch-inbox` to watch a directory and ingest files (Mother)
-  - `recap` to summarize recent clips by app over a window (Father)
-  - `related` to find semantic neighbors of a clip (Father)
-  - `palette` to interactively pick & copy a clip (Father)
-  - `topics` to bucket recent clips by tag/app (Father)
-  - `rewrite` / `shorten` / `extract` to run your helper scripts on a clip and save the result (Father)
-  - `recall` / `fill` to run AI helper scripts over recent clips (opt-in, off by default)
-  - `context` to dump a bundle of recent clips for external LLMs/sidecars (Father)
-  - `sync` to push/pull DB to a configured path (Father)
-  - `federate-export` / `federate-import` / `federate-push` for simple multi-device handoff (JSON-based)
-  - `install-launchagent` to install/remove a login watcher (Father)
-  - `serve` to run a local HTTP API (Father)
-  - `personas` to print roles/domains
-- Dual-pane tmux helper: `scripts/mfm-dual.sh` (left: Mother watcher, right: Father shell).
-- Menu helper: `scripts/mfm-menu.sh` to launch watcher/shell/serve/palette/recent/recap; LaunchAgent plist provided.
-- Serve helper: `scripts/mfm-serve.sh` and LaunchAgent plist to auto-run the web UI/API.
-- Serve will try up to 3 consecutive ports if the requested port is not bindable.
-- Local-only: data is stored at `~/.my-father-mother/mfm.db`.
+Your clipboard is a river of context — code snippets, URLs, API keys, meeting notes, half-formed ideas — and it all vanishes the moment you copy something new. my--father-mother sits beside that river and remembers. It listens to the same clipboard stream your system sees, stores every snippet in a local SQLite database with full-text and semantic search, and gives it back to you by keyword, meaning, or recency. No cloud. No telemetry. No account. Everything stays in `~/.my-father-mother/mfm.db` on your machine.
 
-What it does not (yet)
-- Heavy AI helpers, screenshots/OCR, sync/sharing, or polished IDE/browser extensions. Those can be layered later.
+The tool is built around a dual-persona metaphor drawn from alchemical and mythological imagery:
 
-Requirements
-- macOS with `pbpaste` and `osascript` available.
-- Python 3.10+ (stdlib only).
-- Optional: `pip install sentence-transformers langdetect` to enable e5-small embeddings + language codes.
-- Optional: `brew install poppler tesseract` for PDF (`pdftotext`) and OCR ingest.
+- **Mother (Moon)** — the watcher. She runs the capture loop, records metadata (timestamp, frontmost app, window title), deduplicates, prunes to cap, and ingests files. She is the receptive, lunar function: ever-listening, ever-recording.
+- **Father (Sun)** — the retriever. He runs search, recent, export, stats, configuration, and index maintenance. He is the active, solar function: queried on demand, always ready with answers.
 
-Usage
+This division is not merely cosmetic. Every CLI command, every log line, every API endpoint is assigned to one persona. The architecture enforces a clean separation between data ingestion (Mother) and data retrieval (Father), making the system easier to reason about, extend, and debug.
+
+---
+
+## Table of Contents
+
+- [Why This Exists](#why-this-exists)
+- [Technical Architecture](#technical-architecture)
+- [Installation and Quick Start](#installation-and-quick-start)
+- [Core Features](#core-features)
+- [CLI Reference](#cli-reference)
+- [HTTP API and Web UI](#http-api-and-web-ui)
+- [MCP Bridge](#mcp-bridge)
+- [Browser and IDE Integration](#browser-and-ide-integration)
+- [LaunchAgents and Autostart](#launchagents-and-autostart)
+- [Configuration](#configuration)
+- [Security Model](#security-model)
+- [Cross-Organ Context](#cross-organ-context)
+- [Roadmap](#roadmap)
+- [Related Work](#related-work)
+- [Contributing](#contributing)
+- [License](#license)
+- [Author](#author)
+
+---
+
+## Why This Exists
+
+Clipboard managers exist. Paste (macOS), CopyQ, Ditto (Windows) — they all maintain a scrollable history. But they are optimized for *recent recall*, not *long-term memory*. They do not let you search semantically ("that thing about authentication I copied last Tuesday"), they do not let you tag and annotate clips, they do not expose an API for programmatic access, and they do not bridge into the emerging Model Context Protocol ecosystem.
+
+my--father-mother fills a specific gap: it turns transient clipboard data into a durable, searchable, programmable knowledge layer that sits entirely on your local machine. It is designed for developers, researchers, and knowledge workers who want to treat their clipboard as a first-class data source rather than a volatile buffer.
+
+The core thesis is straightforward: **if you copied it, you cared about it, and you might need it again.** The tool ensures you can find it when you do.
+
+---
+
+## Technical Architecture
+
+### Single-File Runtime
+
+The entire application lives in `main.py` — approximately 4,900 lines of Python 3.10+ using only the standard library for its core functionality. This is a deliberate architectural choice. A single-file CLI tool has zero dependency friction: you clone the repo, run `python3 main.py init`, and you are operational. No virtual environments, no package resolution, no build step.
+
+Optional dependencies (`sentence-transformers`, `langdetect`) unlock enhanced semantic search and language detection but are never required for core operation.
+
+### Storage Layer
+
+```
+~/.my-father-mother/
+  mfm.db          # SQLite database (WAL mode)
+```
+
+The database uses SQLite in WAL (Write-Ahead Logging) mode for concurrent read/write access. The schema includes:
+
+| Table | Purpose |
+|-------|---------|
+| `clips` | Primary clip storage: content, timestamp, source app, window title, pinned flag, title, language code |
+| `clips_fts` | FTS5 virtual table for full-text keyword search |
+| `clip_vectors` | 128-dimensional embedding vectors for semantic search |
+| `clip_tags` | Many-to-many join table for clip-tag relationships |
+| `tags` | Tag name registry |
+| `clip_notes` | Per-clip session notes (user annotations) |
+| `clip_events` | Capture history: repeat sightings, lifecycle events |
+| `settings` | Key-value configuration store |
+| `blocklist` | App names excluded from capture |
+| `copilot_chats` | Copilot conversation history |
+
+### Embedding System
+
+Two embedding modes are available, switchable at runtime via `config --set embedder`:
+
+**Hash embeddings (default):** Fast, zero-dependency 128-dimensional vectors generated from character n-gram hashing. These provide reasonable similarity matching for exact and near-exact content without requiring any model downloads. This is the default because it works instantly with no setup.
+
+**E5-small embeddings (opt-in):** Semantic embeddings using the `intfloat/e5-small-v2` model from the `sentence-transformers` library. These provide genuine meaning-based similarity — "authentication token refresh" will match "OAuth credential rotation" even when no keywords overlap. Enable with:
+
 ```bash
-cd ~/Workspace/my--father-mother
-python3 main.py init               # create DB at ~/.my-father-mother/mfm.db
-python3 main.py watch --cap 5000   # start watcher (Mother/moon), keep last 5k clips
-python3 main.py watch --notify     # watch with macOS toasts on save/skip
-python3 main.py config --set max_bytes 32768  # optional: increase max clip size
-python3 main.py config --set allow_secrets true  # allow secret-like clips
-python3 main.py config --set notify true  # persistently enable toasts
-python3 -m pip install --upgrade sentence-transformers langdetect  # optional: better semantics + language codes
-python3 main.py config --set embedder e5-small  # switch to e5-small embeddings
-python3 main.py config --set cap_by_app '{"terminal":1000,"chrome":2000}'  # optional per-app caps
-python3 main.py config --set cap_by_tag '{"work":1500}'  # optional per-tag caps
-python3 main.py config --set evict_mode tiered  # prefer evicting non-pinned when over DB cap
-python3 main.py config --set allow_pdf true  # allow PDF ingest (requires pdftotext)
-python3 main.py config --set allow_images true  # allow image OCR ingest (requires tesseract)
-python3 main.py config --set auto_summary_cmd "your-cmd"  # optional summary hook (stdin=clip, stdout=summary)
-python3 main.py config --set auto_tag_cmd "your-cmd"      # optional tag hook (stdin=clip, stdout=tags)
-python3 main.py config --set helper_rewrite_cmd "your-cmd"  # set rewrite helper (stdin=clip, stdout=rewrite)
-python3 main.py config --set helper_shorten_cmd "your-cmd"  # set shorten helper
-python3 main.py config --set helper_extract_cmd "your-cmd"  # set extract helper
-python3 main.py recent --limit 10  # show last 10 entries (Father/sun)
-python3 main.py recent --since-hours 24 --pins-only  # last 24h pinned
-python3 main.py search "docker env" --limit 5  # keyword FTS search (Father/sun)
-python3 main.py search "docker env" --since "2025-01-01T00:00:00" --until "2025-01-07"  # date range
-python3 main.py semantic-search "auth token reset" --limit 5  # semantic search (Father/sun)
-python3 main.py stats              # count, db size, latest timestamp (Father/sun)
-python3 main.py status             # paused/notify/limits/db size (Father/sun)
-python3 main.py settings           # settings parity snapshot (Father/sun)
-python3 main.py copilot --set-model gemini-2.5-flash  # set copilot model
-python3 main.py ml --context-level medium             # set auto-context level
-python3 main.py mcp-urls           # print MCP server URLs (SSE + MCP)
-python3 main.py about              # app/runtime details
-python3 main.py pause --on         # pause capture (Mother/moon)
-python3 main.py pause --off        # resume capture (Mother/moon)
-python3 main.py blocklist --add "Slack"   # block captures from Slack (Father/sun)
-python3 main.py blocklist --list          # show blocked apps (Father/sun)
-python3 main.py pin --id 12 --on   # pin a clip (Father/sun)
-python3 main.py copy --id 12       # copy clip content back to clipboard (Father/sun)
-python3 main.py history --id 12    # view capture history for clip #12
-python3 main.py show --id 12       # print full clip (Father/sun)
-python3 main.py export --limit 200 --path /tmp/clips.json  # export to JSON (Father/sun)
-python3 main.py recent --app "Chrome" --contains "token"   # filter recent by app/substring
-python3 main.py search "docker env" --app "Terminal"       # search within app
-python3 main.py tags --id 12 --add projectx --add auth     # tag a clip
-python3 main.py tags --list-all                            # list all tags
-python3 main.py note --id 12 --text "important context"    # append a note to clip 12
-python3 main.py purge --tag projectx --keep-last 100       # purge for a tag
-python3 main.py purge --older-than-days 30                 # purge clips older than 30 days
-python3 main.py purge --keep-last 500                      # keep newest 500, delete rest
-python3 main.py ingest-file --path ~/Desktop/snippet.txt   # ingest a single file (Mother/moon)
-python3 main.py ingest-transcript --path ~/meeting.txt     # ingest transcript and tag meeting/transcript
-python3 main.py watch-inbox --dir ~/.my-father-mother/inbox --interval 5  # watch/drop folder (Mother/moon)
-python3 main.py related --id 12 --limit 5                  # semantic neighbors of a clip (Father/sun)
-python3 main.py recap --minutes 60                         # recap last hour grouped by app (Father/sun)
-python3 main.py context --app "Slack" --limit 15           # dump recent Slack context for LLM sidecar
-python3 main.py topics --limit 6 --per-group 3 --since-hours 24  # topic buckets by tag/app (Father/sun)
-python3 main.py palette --limit 30 --query "auth"          # interactive picker + copy (Father/sun)
-python3 main.py rewrite --id 12 --show                     # run rewrite helper on clip 12 (default latest if omitted)
-python3 main.py shorten --show                             # run shorten helper on latest clip
-python3 main.py extract --id 42 --timeout 12               # run extract helper with longer timeout
-python3 main.py export-md --hours 24 --path /tmp/clips.md  # markdown journal outline by date/app/tags
-python3 main.py recall --hours 6 --show                    # run recall helper over last 6h (needs ai_recall_cmd set)
-python3 main.py fill --limit 80 --save                     # run fill-gaps helper on recent clips, save output
-python3 main.py sync --mode push --target ~/Library/Mobile\\ Documents/com~apple~CloudDocs/mfm.db  # manual sync to iCloud
-python3 main.py federate-export --limit 200 --since-hours 24 --path /tmp/mfm-peer.json  # export for another device
-python3 main.py federate-import --url http://peer:8765/federate_export  # pull from peer’s serve endpoint
-python3 main.py federate-push --url http://peer:8765/federate_import --limit 100  # push to peer
-python3 main.py install-launchagent --cap 5000 --interval 1.0  # write LaunchAgent
-python3 main.py install-launchagent --remove                   # remove LaunchAgent
-python3 main.py serve --port 8765   # start local HTTP API
-  # then open http://127.0.0.1:8765/ for a simple search/recent UI
-python3 main.py personas           # show role map
+pip install sentence-transformers langdetect
+python3 main.py config --set embedder e5-small
+```
 
-# dual-pane tmux (needs tmux installed). Colors + tone:
-# Mother|Moon (teal): “ever-watching; capturing clipboard”
-# Father|Sun (gold): “awake; ask me for recent/search/export”
-./scripts/mfm-dual.sh               # opens/attaches tmux with Mother (left) + Father (right)
+Existing clips retain their stored vectors when you switch modes. New clips are embedded using whichever mode is active. Both modes produce 128-dimensional vectors stored in the `clip_vectors` table, so the search interface is identical regardless of backend.
 
-# editor-friendly fetch (stdout/clipboard)
-./scripts/mfm-fetch.sh --latest --copy
-./scripts/mfm-fetch.sh --query "auth token" --semantic --copy
-./scripts/mfm-fetch.sh --id 12 --copy
-./scripts/mfm-fzf.sh --query "auth" --semantic    # fzf picker
-./scripts/mfm-rofi.sh --query "auth"              # rofi picker (needs rofi)
-# ingest helpers
-python3 main.py ingest-file --path ~/doc.pdf --allow-pdf
-python3 main.py ingest-image --path ~/pic.png --allow-images
+### Capture Pipeline
+
+The Mother watcher loop follows this pipeline on each tick (default: 1-second interval):
+
+1. **Read clipboard** via `pbpaste` (macOS system utility)
+2. **Deduplication check** — skip if content hash matches the last captured clip
+3. **Size check** — skip if content exceeds `max_bytes` (default 16 KB, configurable)
+4. **Secret detection** — skip clips matching common secret patterns (AWS keys, GitHub PATs, private keys, Slack tokens) unless `allow_secrets` is enabled
+5. **Blocklist check** — skip if the frontmost app is in the blocklist
+6. **Metadata extraction** — capture frontmost app name and window title via `osascript`
+7. **Persistence** — insert into `clips` table, update FTS5 index, generate and store embedding vector
+8. **Smart hooks** — optionally run user-provided `auto_summary_cmd` and `auto_tag_cmd` shell commands
+9. **Cap enforcement** — if clip count exceeds cap, evict oldest (FIFO) or oldest non-pinned (tiered) clips
+10. **Notification** — optionally fire a macOS toast via `osascript` displaying the saved clip
+
+### HTTP Server
+
+The `serve` command starts a local HTTP server (default port 8765) that exposes the full retrieval API plus a minimal web UI at the root path. The server tries up to 3 consecutive ports if the requested port is busy. Endpoints mirror CLI commands: `/recent`, `/search`, `/semantic_search`, `/context`, `/clip`, `/status`, `/pin`, `/tags`, `/dropper`, `/ingest_url`, `/recap`, `/topics`, `/federate_export`, `/federate_import`.
+
+### MCP Bridge
+
+A separate lightweight server (`scripts/mcp_server.py`, port 39300) implements a subset of the Model Context Protocol, exposing clipboard context as MCP resources for LLM tool integration with editors like Cursor, Copilot, and other MCP-aware clients.
+
+---
+
+## Installation and Quick Start
+
+### Prerequisites
+
+- macOS with `pbpaste` and `osascript` available (ships with every Mac)
+- Python 3.10 or later (stdlib only for core features)
+
+### Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/organvm-iii-ergon/my--father-mother.git
+cd my--father-mother
+
+# Initialize the database
+python3 main.py init
+# => creates ~/.my-father-mother/mfm.db
+
+# Start the clipboard watcher (Mother)
+python3 main.py watch --cap 5000
+# => [mother|moon] watching clipboard (cap=5000, interval=1.0s)
+
+# In another terminal, query your clips (Father)
+python3 main.py recent --limit 10
+python3 main.py search "docker env" --limit 5
+```
+
+### Optional Enhancements
+
+```bash
+# Semantic search and language detection
+pip install sentence-transformers langdetect
+python3 main.py config --set embedder e5-small
+
+# PDF and image ingestion
+brew install poppler tesseract
+python3 main.py config --set allow_pdf true
+python3 main.py config --set allow_images true
+
+# macOS toast notifications on clip save/skip
+python3 main.py config --set notify true
+```
+
+### Dual-Pane Tmux Session
+
+The recommended way to run my--father-mother during a work session:
+
+```bash
+./scripts/mfm-dual.sh
+```
+
+This opens a tmux session with Mother (watcher, teal) on the left pane and Father (interactive shell, gold) on the right pane. The color coding reinforces the persona metaphor — moon-teal for the receptive watcher, sun-gold for the active retriever.
+
+---
+
+## Core Features
+
+### Clipboard Capture and Deduplication
+
+Mother captures clipboard text at a configurable interval (default 1 second), recording the timestamp, frontmost application, and window title for each clip. Identical clips are deduplicated by content hash. Repeat sightings are logged in the capture history for forensic review without bloating the primary store.
+
+### Full-Text Search (FTS5)
+
+Every clip is indexed in an SQLite FTS5 virtual table. Search queries support standard FTS5 syntax including boolean operators, phrase matching, and prefix queries:
+
+```bash
+python3 main.py search "docker AND env" --limit 10
+python3 main.py search "auth token" --app Terminal --since "2025-01-01"
+```
+
+### Semantic Search
+
+Beyond keyword matching, semantic search finds clips by meaning. With hash embeddings (default), this catches near-duplicates and variations. With e5-small embeddings, it performs genuine conceptual matching:
+
+```bash
+python3 main.py semantic-search "API authentication flow" --limit 5
+python3 main.py related --id 42 --limit 5  # find neighbors of a specific clip
+```
+
+### Tags, Pins, and Notes
+
+Clips can be tagged, pinned (protected from eviction), and annotated with session notes:
+
+```bash
+python3 main.py tags --id 12 --add projectx --add auth
+python3 main.py pin --id 12 --on
+python3 main.py note --id 12 --text "this is the OAuth config from the staging env"
+```
+
+Tags drive the topic-bucketing system and per-tag cap enforcement. Pins protect important clips from eviction when the database reaches its size cap.
+
+### Context Bundles
+
+The `context` command dumps a structured bundle of recent clips — filtered by app, tag, time window, or pin status — formatted for consumption by LLM sidecars and AI coding assistants:
+
+```bash
+python3 main.py context --app "Slack" --limit 15 --hours 4
+```
+
+This is the bridge between clipboard history and AI-assisted workflows: feed your recent context into a prompt without manual copy-paste assembly.
+
+### Topic Bucketing
+
+The `topics` command groups recent clips by tag (or by source app when untagged), providing a quick overview of your recent clipboard activity organized by domain:
+
+```bash
+python3 main.py topics --limit 6 --per-group 3 --since-hours 24
+```
+
+### Helper Transforms
+
+Configurable shell-out helpers let you pipe clips through your own scripts for rewriting, shortening, or extracting structured data:
+
+```bash
+python3 main.py config --set helper_rewrite_cmd "your-rewrite-script"
+python3 main.py rewrite --id 12 --show
+python3 main.py shorten --show  # operates on latest clip
+python3 main.py extract --id 42 --timeout 12
+```
+
+Results are saved as new tagged clips, preserving the original.
+
+### File and Media Ingestion
+
+Beyond clipboard capture, Mother can ingest files directly:
+
+```bash
+python3 main.py ingest-file --path ~/Desktop/snippet.txt
+python3 main.py ingest-transcript --path ~/meeting.txt  # auto-tagged meeting/transcript
+python3 main.py watch-inbox --dir ~/.my-father-mother/inbox --interval 5
+python3 main.py ingest-file --path ~/doc.pdf --allow-pdf  # requires pdftotext
+python3 main.py ingest-image --path ~/pic.png --allow-images  # requires tesseract OCR
+```
+
+### Markdown Journal Export
+
+Export your clipboard history as a structured Markdown outline, grouped by date, application, and tags — ready to drop into Obsidian, Logseq, or any daily-notes workflow:
+
+```bash
+python3 main.py export-md --hours 24 --path /tmp/clips.md
+```
+
+### Federation
+
+Simple multi-device clipboard sharing via JSON export/import:
+
+```bash
+# Export recent clips for another device
+python3 main.py federate-export --limit 200 --since-hours 24 --path /tmp/peer.json
+
+# Import from a peer's export or live serve endpoint
+python3 main.py federate-import --url http://peer:8765/federate_export
+
+# Push directly to a peer
+python3 main.py federate-push --url http://peer:8765/federate_import --limit 100
+```
+
+Federation uses content-hash deduplication to merge without duplicates.
+
+### Backup and Sync
+
+```bash
 python3 main.py backup --path ~/mfm-backup.db
 python3 main.py restore --path ~/mfm-backup.db
-
-# IDE integration (examples)
-# VS Code tasks.json sample task (semantic fetch on selected text, copies to clipboard):
-# {
-#   "version": "2.0.0",
-#   "tasks": [
-#     {
-#       "label": "mfm semantic fetch",
-#       "type": "shell",
-#       "command": "${workspaceFolder}/my--father-mother/scripts/mfm-fetch.sh",
-#       "args": ["--query", "${selectedText}", "--semantic", "--copy"],
-#       "problemMatcher": []
-#     }
-#   ]
-# }
-# Bind the task to a keybinding via command "workbench.action.tasks.runTask" args: "mfm semantic fetch".
-#
-# JetBrains (External Tool):
-# Program: /bin/zsh
-# Parameters: -lc "/Users/4jp/Workspace/my--father-mother/scripts/mfm-fetch.sh --query \"$SELECTION\" --semantic --copy"
-# Working directory: /Users/4jp/Workspace/my--father-mother
-
-# menu launcher (simple curses-less menu)
-./scripts/mfm-menu.sh
-
-# LaunchAgents (optional autostart): copy to ~/Library/LaunchAgents and load with launchctl
-# - com.my-father-mother.tmux.plist   (dual tmux)
-# - com.my-father-mother.menu.plist   (menu launcher)
-# - com.my-father-mother.serve.plist  (serve UI/API)
-# Optional SwiftBar: place scripts/mfm-swiftbar.1s.sh in your SwiftBar plugins directory (reads /status + latest clip).
-
-Browser bookmarklet
-- Run the API/UI: `python3 main.py serve --port 8765` (adjust port if needed).
-- Create a bookmark whose URL is:
+python3 main.py sync --mode push --target ~/Library/Mobile\ Documents/com~apple~CloudDocs/mfm.db
 ```
+
+---
+
+## CLI Reference
+
+The CLI is organized by persona. Every command is assigned to either Mother (capture/ingestion) or Father (retrieval/configuration).
+
+### Mother (Moon) Commands — Capture and Ingestion
+
+| Command | Description |
+|---------|-------------|
+| `init` | Create the database at `~/.my-father-mother/mfm.db` |
+| `watch` | Start the clipboard capture loop (`--cap`, `--interval`, `--notify`) |
+| `pause` | Pause, resume, or toggle capture (`--on`, `--off`, `--toggle`) |
+| `ingest-file` | Ingest a single file into the store |
+| `ingest-transcript` | Ingest a meeting transcript with auto-tagging |
+| `watch-inbox` | Watch a directory and ingest new files as they appear |
+
+### Father (Sun) Commands — Retrieval and Management
+
+| Command | Description |
+|---------|-------------|
+| `recent` | List recent clips with filters (`--limit`, `--app`, `--tag`, `--since-hours`, `--pins-only`) |
+| `search` | Full-text keyword search (`--limit`, `--app`, `--tag`, `--since`, `--until`) |
+| `semantic-search` | Meaning-based search using embeddings |
+| `related` | Find semantic neighbors of a specific clip |
+| `show` | Print a specific clip by ID |
+| `copy` | Copy a stored clip back to the system clipboard |
+| `history` | View capture history for a clip |
+| `stats` | Show counts, database size, latest timestamp |
+| `status` | Show runtime status (paused, notify, limits, DB size) |
+| `settings` | Settings parity snapshot |
+| `config` | Get/set configuration values |
+| `tags` | Add, remove, or list tags on clips |
+| `note` | Append or list session notes for a clip |
+| `pin` | Pin or unpin clips (protect from eviction) |
+| `delete` | Remove entries by ID |
+| `purge` | Delete by age, app, tag, or keep-last-N |
+| `export` | Export clips to JSON |
+| `export-md` | Export as Markdown journal outline |
+| `recap` | Summarize recent clips by app over a time window |
+| `topics` | Bucket recent clips by tag or app |
+| `palette` | Interactive picker with copy (`--query`, `--limit`) |
+| `context` | Dump a context bundle for LLM sidecars |
+| `rewrite` / `shorten` / `extract` | Run helper transforms on a clip |
+| `recall` / `fill` | Run AI helper scripts over recent clips (opt-in) |
+| `blocklist` | Add, remove, or list blocked apps |
+| `sync` | Push/pull database to a path |
+| `federate-export` / `federate-import` / `federate-push` | Multi-device handoff |
+| `backup` / `restore` | Database backup and restore |
+| `serve` | Start the local HTTP API and web UI |
+| `install-launchagent` | Install or remove the login LaunchAgent |
+| `personas` | Print the role/domain map |
+| `copilot` | Manage copilot settings and chats |
+| `ml` | Manage machine-learning and LTM settings |
+| `mcp-urls` | Print MCP server URLs |
+| `about` | Show app and runtime details |
+
+Run `python3 main.py --help` for full option details on every command.
+
+---
+
+## HTTP API and Web UI
+
+Start the server:
+
+```bash
+python3 main.py serve --port 8765
+```
+
+### Web Interface
+
+Navigate to `http://127.0.0.1:8765/` for a minimal but functional web UI with search, recent clips, topic bucketing, tag/pin management, and a status indicator showing paused/active state plus notification and secret-storage flags. The UI includes keyboard shortcuts (Enter to search, Cmd/Ctrl+F to focus the search input) and optional auto-refresh.
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/recent` | Recent clips (params: `limit`, `app`, `tag`, `pins_only`, `since`, `until`) |
+| GET | `/search` | FTS5 keyword search (params: `q`, `limit`, `app`, `tag`) |
+| GET | `/semantic_search` | Semantic search (params: `q`, `limit`) |
+| GET | `/context` | Context bundle for LLM sidecars (params: `limit`, `app`, `tag`, `hours`, `pins_only`) |
+| GET | `/clip` | Single clip by ID (params: `id`) |
+| GET | `/status` | Runtime status (paused, notify, DB size, caps) |
+| GET | `/recap` | Recent activity summary (params: `minutes`) |
+| GET | `/topics` | Topic buckets (params: `limit`, `per_group`, `since_hours`) |
+| GET | `/tags` | List all tags |
+| POST | `/pin` | Pin/unpin a clip (`{"id": N, "pinned": true}`) |
+| POST | `/dropper` | Browser extension ingest (`{"url", "title", "selection", "html", "app"}`) |
+| POST | `/ingest_url` | Bookmarklet ingest (`{"url", "title", "selection"}`) |
+| GET | `/federate_export` | Export clips as JSON for federation |
+| POST | `/federate_import` | Import clips from a peer |
+
+---
+
+## MCP Bridge
+
+The Model Context Protocol bridge (`scripts/mcp_server.py`) exposes clipboard context to MCP-aware LLM tools and editors on a separate port:
+
+```bash
+python3 scripts/mcp_server.py
+# => [mcp] serving on http://127.0.0.1:39300/model_context_protocol/2025-03-26/mcp
+```
+
+### MCP Resources
+
+| Endpoint | Description |
+|----------|-------------|
+| `/model_context_protocol/2025-03-26/mcp` | Resource listing and metadata |
+| `/mcp/recent` | Recent clips as JSON |
+| `/mcp/context` | Context bundle (filter by app, tag, hours, pins) |
+| `/mcp/search` | FTS search over clips |
+| `/model_context_protocol/2024-11-05/sse` | Server-Sent Events heartbeat (clip count + latest) |
+| `/health` | Health check |
+
+Point your MCP-compatible editor (Cursor, GitHub Copilot, etc.) at the resource listing URL. The SSE endpoint provides a live heartbeat with current clip count and latest clip timestamp, suitable for status indicators and auto-refresh triggers.
+
+A LaunchAgent plist (`com.my-father-mother.mcp.plist`) is provided for auto-starting the MCP bridge at login.
+
+---
+
+## Browser and IDE Integration
+
+### Browser Bookmarklet
+
+With the API server running, create a bookmark with this URL to save the current page into my--father-mother:
+
+```javascript
 javascript:(()=>{fetch('http://127.0.0.1:8765/ingest_url',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:location.href,title:document.title,selection:window.getSelection().toString()})}).catch(()=>{});})();
 ```
-- Clicking it saves the current page title + URL + selection into my--father-mother under app `bookmarklet`.
-- Extension dropper: POST JSON `{url,title,selection,html,app}` to `/dropper` from a browser extension/context menu to save richer payloads.
-- Chrome MV3 sample extension: see `scripts/extension-dropper/manifest.json` + `worker.js`; load as unpacked to send active tab to `/dropper`.
 
-Semantic + language upgrades (optional)
-- Install extras: `python3 -m pip install --upgrade sentence-transformers langdetect`.
-- Select the embedder: `python3 main.py config --set embedder e5-small`.
-- Existing clips keep their stored vectors (hash by default); new clips use the selected embedder.
-- Language codes come from `langdetect`; if missing, `lang` is `unk`.
+### Chrome Extension (MV3)
 
-Progress checklist (v1 scope)
-- [x] Polish UI: terminal palette (fzf/rofi), web UI with filters/tags/pin/copy, `/tags` + `/pin` endpoints.
-- [x] Semantics: optional local embedder (`e5-small`) with semantic search, per-clip language detection; falls back to hash if deps missing.
-- [x] Safety/limits: configurable byte cap, max DB MB with eviction, secret redaction or skip.
-- [x] Integrations: IDE fetch helper scripts, tmux/menu helpers, bookmarklet endpoint (`/ingest_url`).
-- [x] Presence/notifications: desktop toast on save/skip (configurable), `/status` endpoint + UI indicator.
+A sample Manifest V3 extension lives in `scripts/extension-dropper/`. It sends the active tab's title, URL, selected text, and highlighted HTML to the `/dropper` endpoint. Load it as an unpacked extension in Chrome to get a toolbar button and right-click context menu item ("Send to my--father-mother").
 
-Roadmap (toggleable by heaviness)
-- Light (default on):
-  - ✅ Current capture/search stack (done).
-  - ✅ Per-tag/app caps and smarter eviction tiers (config flags).
-  - ✅ Date-range filters + pin-only view in UI/API.
-- Medium (opt-in):
-  - ✅ Screenshot/OCR ingest (tesseract) and PDF ingest (pdftotext), toggled via config/flags.
-  - ✅ Auto-tag/summary on save (optional hooks).
-  - ✅ Topic grouping/threading views (UI “Topics” button + CLI `topics`).
-  - ✅ Backup/restore to local archive (manual command; off otherwise).
-- Heavy (off by default):
-  - ☐ Cloud/sync/remote backup (explicit toggle; require creds).
-  - ☐ Full browser extension/menubar mini UI (install separately).
-  - ☐ Advanced AI helpers (rewrite/expand/RAG) run-on-demand only.
-  - ☐ Multi-device federation (explicit opt-in).
+### VS Code
 
-Toggling guidance
-- Keep light path on for speed/locality. Turn on Medium/Heavy per need; they should be behind explicit flags/env/config so the base loop stays small and private.
+A sample `tasks.json` task is provided in `scripts/mfm-vscode-task.json`:
+
+```jsonc
+{
+  "label": "mfm semantic fetch",
+  "type": "shell",
+  "command": "./scripts/mfm-fetch.sh",
+  "args": ["--query", "${selectedText}", "--semantic", "--copy"]
+}
 ```
 
-Run `python3 main.py --help` for all options.
+Bind to a keybinding via `workbench.action.tasks.runTask` with argument `"mfm semantic fetch"`. Select text in your editor, press the hotkey, and the most semantically similar clip is copied to your clipboard.
 
-Notes
-- The watcher polls the clipboard every second. It skips empty clips and exact duplicates.
-- Frontmost app/window is fetched via `osascript`; if that fails, it falls back to `unknown`.
-- If you already use Paste, this runs alongside it; we’re not touching Paste’s data.
-- By default, clips matching common secret patterns (AWS keys, GitHub PATs, private keys, Slack tokens) are skipped; use `--allow-secrets` to override. Max clip size defaults to 16KB; adjust via `config --set max_bytes ...`.
-- To auto-start the dual tmux session on login, copy `com.my-father-mother.tmux.plist` to `~/Library/LaunchAgents/` and run `launchctl load ~/Library/LaunchAgents/com.my-father-mother.tmux.plist` (tmux required).
-# IDE integration (examples)
-# VS Code tasks/keybindings samples are in scripts/mfm-vscode-task.json and scripts/mfm-vscode-keybindings.json.
-# JetBrains (External Tool):
-# Program: /bin/zsh
-# Parameters: -lc "/Users/4jp/Workspace/my--father-mother/scripts/mfm-fetch.sh --query \"$SELECTION\" --semantic --copy"
-# Working directory: /Users/4jp/Workspace/my--father-mother
+### JetBrains (External Tool)
+
+Configure an External Tool with:
+- **Program:** `/bin/zsh`
+- **Parameters:** `-lc "./scripts/mfm-fetch.sh --query \"$SELECTION\" --semantic --copy"`
+- **Working directory:** your clone path
+
+Bind to a keymap for instant semantic lookup from any JetBrains IDE.
+
+### Sublime Text (Build System)
+
+```json
+{
+  "cmd": ["/bin/zsh", "-lc", "./scripts/mfm-fetch.sh --query \"$TM_SELECTED_TEXT\" --semantic --copy"],
+  "shell": true,
+  "selector": "text"
+}
+```
+
+### Obsidian (Templater)
+
+```javascript
+const res = await request({url: 'http://127.0.0.1:8765/context?limit=10'});
+const data = JSON.parse(res);
+return data.items.map(i => `- #${i.id} [${i.source_app}] ${i.title || ''}`).join('\n');
+```
+
+### Terminal Pickers
+
+- **fzf picker:** `./scripts/mfm-fzf.sh --query "auth" --semantic` — interactive fuzzy finder in your terminal
+- **rofi picker:** `./scripts/mfm-rofi.sh --query "auth"` — GUI picker (requires `rofi`)
+
+### SwiftBar Menubar Plugin
+
+Place `scripts/mfm-swiftbar.1s.sh` in your SwiftBar plugins directory for a menubar widget showing status, recent clips, and quick copy/pin/pause actions. If HTTP is blocked by your firewall, set `MFM_FORCE_CLI=1` and `MFM_REPO_DIR` to use the CLI directly.
+
+See `INTEGRATIONS.md` for the full cookbook covering JupyterLab, Raycast, and additional editor configurations.
+
+---
+
+## LaunchAgents and Autostart
+
+Five LaunchAgent plists are provided for auto-starting components at login:
+
+| Plist | Component | Default |
+|-------|-----------|---------|
+| `com.my-father-mother.watch.plist` | Direct clipboard watcher (Mother) | cap=5000, interval=1.0s |
+| `com.my-father-mother.serve.plist` | HTTP API and web UI (Father) | port 8765 |
+| `com.my-father-mother.mcp.plist` | MCP bridge server | port 39300 |
+| `com.my-father-mother.tmux.plist` | Dual-pane tmux session | Mother + Father |
+| `com.my-father-mother.menu.plist` | Menu launcher script | — |
+
+### Quick Install
+
+```bash
+# Install individual agents
+cp com.my-father-mother.watch.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.my-father-mother.watch.plist
+
+# Or use the helper script to toggle multiple agents at once
+./scripts/mfm-launchagents.sh --on watch,serve,mcp --off tmux,menu
+./scripts/mfm-launchagents.sh --status
+
+# Unload
+launchctl unload ~/Library/LaunchAgents/com.my-father-mother.watch.plist
+```
+
+The MCP plist respects `MFM_MCP_HOST` and `MFM_MCP_PORT` environment variables (defaults: `127.0.0.1:39300`).
+
+---
+
+## Configuration
+
+All configuration is stored in the SQLite database's `settings` table and managed via the `config` command:
+
+```bash
+python3 main.py config --get max_bytes       # read a value
+python3 main.py config --set max_bytes 32768  # write a value
+```
+
+### Key Configuration Options
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `max_bytes` | `16384` | Maximum clip size in bytes |
+| `max_db_mb` | `512` | Database size cap in MB |
+| `allow_secrets` | `false` | Store clips matching secret patterns |
+| `notify` | `false` | macOS toast notifications on save/skip |
+| `embedder` | `hash` | Embedding backend: `hash` or `e5-small` |
+| `evict_mode` | `fifo` | Eviction strategy: `fifo` or `tiered` (prefer non-pinned) |
+| `cap_by_app` | `{}` | JSON dict of per-app clip caps |
+| `cap_by_tag` | `{}` | JSON dict of per-tag clip caps |
+| `allow_pdf` | `false` | Enable PDF ingestion (requires `pdftotext`) |
+| `allow_images` | `false` | Enable OCR image ingestion (requires `tesseract`) |
+| `auto_summary_cmd` | — | Shell command for auto-summarization on capture |
+| `auto_tag_cmd` | — | Shell command for auto-tagging on capture |
+| `helper_rewrite_cmd` | — | Shell command for clip rewriting |
+| `helper_shorten_cmd` | — | Shell command for clip shortening |
+| `helper_extract_cmd` | — | Shell command for structured extraction |
+
+---
+
+## Security Model
+
+my--father-mother takes a defense-in-depth approach to clipboard security:
+
+1. **Local-only by default.** The database lives at `~/.my-father-mother/mfm.db`. No data leaves your machine unless you explicitly configure sync or federation.
+
+2. **Secret filtering.** By default, clips matching common secret patterns — AWS access keys, GitHub Personal Access Tokens, SSH private keys, Slack tokens, and similar high-entropy credential formats — are silently skipped. This prevents accidental long-term storage of secrets you copy during development. Override with `config --set allow_secrets true` if your workflow requires it.
+
+3. **App blocklist.** Sensitive applications (password managers, banking apps) can be excluded from capture entirely via `blocklist --add "1Password"`.
+
+4. **Size caps.** The `max_bytes` setting (default 16 KB) prevents ingestion of unusually large clipboard payloads that could indicate binary data or data dumps.
+
+5. **Database caps with backpressure.** The `max_db_mb` setting (default 512 MB) enforces a hard cap on database size. When approached, the system warns via `/status` and evicts according to the configured eviction mode.
+
+6. **No network listeners by default.** The HTTP API (`serve`) and MCP bridge (`mcp_server.py`) only start when explicitly invoked and bind to `127.0.0.1` (localhost only).
+
+---
+
+## Cross-Organ Context
+
+my--father-mother is part of [ORGAN-III (Ergon)](https://github.com/organvm-iii-ergon), the commerce and product organ of the eight-organ creative-institutional system. It sits within a broader ecosystem:
+
+- **ORGAN-I (Theoria)** — The theoretical foundation. The dual-persona architecture (Mother/Moon, Father/Sun) draws on alchemical and archetypal patterns explored in ORGAN-I's epistemological work, particularly the [recursive-engine](https://github.com/organvm-i-theoria/recursive-engine) framework for self-referential systems. The clipboard-as-memory metaphor — treating transient data as a knowledge substrate — reflects ORGAN-I's investigation of how recursive observation creates durable structure.
+
+- **ORGAN-IV (Taxis)** — Orchestration and governance. The MCP bridge in my--father-mother is designed to integrate with ORGAN-IV's [agentic-titan](https://github.com/organvm-iv-taxis/agentic-titan) orchestration layer, providing clipboard context as a resource for AI agent workflows. The LaunchAgent-based autostart system mirrors the governance patterns that Taxis applies at the organizational level.
+
+- **ORGAN-V (Logos)** — Public process. The design decisions behind my--father-mother — local-first philosophy, dual-persona architecture, the choice to build a single-file CLI tool rather than a cloud SaaS product — are documented in ORGAN-V's [public-process](https://github.com/organvm-v-logos/public-process) essays as part of the building-in-public methodology.
+
+The tool demonstrates ORGAN-III's product philosophy: build useful, opinionated tools that solve real problems for the author first, then make them available as portfolio artifacts that communicate engineering values — privacy, locality, composability, and zero-dependency operation.
+
+---
+
+## Roadmap
+
+### Completed (v1 Scope)
+
+- Full clipboard capture with metadata, deduplication, and configurable caps
+- FTS5 full-text search and optional semantic search (hash + e5-small)
+- Tags, pins, session notes, capture history
+- Topic bucketing and context bundles for LLM integration
+- Helper transforms (rewrite/shorten/extract) via shell-out
+- HTTP API with 15+ endpoints and minimal web UI
+- MCP bridge for editor integration
+- Browser bookmarklet, Chrome MV3 extension sample
+- IDE integration scripts for VS Code, JetBrains, Sublime, Obsidian
+- Terminal pickers (fzf, rofi), SwiftBar menubar plugin
+- LaunchAgent plists for all components
+- Federation (JSON export/import/push between devices)
+- PDF and OCR image ingestion (opt-in)
+- Markdown journal export
+- AI helper hooks (recall/fill, opt-in)
+
+### Planned
+
+- **Data encryption at rest** — encrypt the SQLite database for additional security on shared machines
+- **Full browser extension** — richer than the current sample; persistent sidebar, highlight capture, page annotation
+- **Menubar mini-UI** — native SwiftUI or Electron app beyond the current SwiftBar stub
+- **Cloud sync targets** — S3-compatible and iCloud Drive with encryption, explicit opt-in only
+- **Advanced AI helpers** — retrieval-augmented generation (RAG) over clipboard history using local models
+- **Cross-platform support** — Linux (`xclip`/`xsel`) and Windows (`clip.exe`/PowerShell) clipboard backends
+
+All planned features follow the project's layering principle: light features are on by default, medium features are opt-in via config flags, heavy features are off by default and require explicit enablement. The always-on capture loop must remain fast, private, and dependency-free.
+
+---
+
+## Related Work
+
+- **[Paste](https://pasteapp.io/)** — macOS clipboard manager with visual history. Commercial, cloud-optional. my--father-mother runs alongside Paste without interference; it reads the same clipboard stream.
+- **[CopyQ](https://hluk.github.io/CopyQ/)** — Cross-platform clipboard manager with scripting. More feature-rich UI but no semantic search or MCP integration.
+- **[Pieces](https://pieces.app/)** — AI-powered snippet manager with IDE plugins. Cloud-connected. my--father-mother takes the opposite approach: local-only, stdlib-only, API-first.
+- **[Clipboard History Pro](https://clipboardhistorypro.com/)** — macOS utility focused on recent recall. No search, no tagging, no API.
+- **[Raycast Clipboard History](https://www.raycast.com/)** — Built into Raycast launcher. Excellent for recent recall but limited search depth and no programmatic API.
+
+my--father-mother differentiates on three axes: (1) semantic search over long-term history, (2) MCP-native integration with AI coding tools, and (3) zero-dependency local-only operation with no account or cloud requirement.
+
+---
+
+## Contributing
+
+Contributions are welcome. The codebase is a single Python file (`main.py`) plus helper scripts — straightforward to read and extend.
+
+**To add a new CLI command:**
+
+1. Write a `cmd_your_command(args: argparse.Namespace) -> None` function
+2. Add a subparser in `build_parser()` with `set_defaults(func=cmd_your_command)`
+3. Assign the command to a persona (Mother for capture/ingestion, Father for retrieval/management)
+4. If the command exposes data, add a corresponding HTTP endpoint in the `serve` handler
+
+**Code style:** Format with `black`. Python 3.10+ stdlib only for core features. Optional dependencies must be guarded with try/except imports.
+
+**Testing:** No formal test suite exists yet. Test manually by running `init`, `watch`, and verifying with `recent`/`search`. Contributions adding a test harness are especially welcome.
+
+Please open an issue or pull request on this repository. For questions about the broader ORGAN system, see [meta-organvm](https://github.com/meta-organvm).
+
+---
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+## Author
+
+Built by [@4444j99](https://github.com/4444J99) as part of the [ORGAN-III (Ergon)](https://github.com/organvm-iii-ergon) product organ.
+
+Part of the [eight-organ creative-institutional system](https://github.com/meta-organvm) — a coordinated network of theory, art, commerce, orchestration, public process, community, and distribution.
