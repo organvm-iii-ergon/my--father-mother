@@ -6,6 +6,14 @@
 
 # my--father-mother
 
+[![CI](https://github.com/organvm-iii-ergon/my--father-mother/actions/workflows/ci.yml/badge.svg)](https://github.com/organvm-iii-ergon/my--father-mother/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-pending-lightgrey)](https://github.com/organvm-iii-ergon/my--father-mother)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/organvm-iii-ergon/my--father-mother/blob/main/LICENSE)
+[![Organ III](https://img.shields.io/badge/Organ-III%20Ergon-F59E0B)](https://github.com/organvm-iii-ergon)
+[![Status](https://img.shields.io/badge/status-active-brightgreen)](https://github.com/organvm-iii-ergon/my--father-mother)
+[![Python](https://img.shields.io/badge/lang-Python-informational)](https://github.com/organvm-iii-ergon/my--father-mother)
+
+
 **Local-only clipboard long-term memory for macOS.**
 
 Your clipboard is a river of context — code snippets, URLs, API keys, meeting notes, half-formed ideas — and it all vanishes the moment you copy something new. my--father-mother sits beside that river and remembers. It listens to the same clipboard stream your system sees, stores every snippet in a local SQLite database with full-text and semantic search, and gives it back to you by keyword, meaning, or recency. No cloud. No telemetry. No account. Everything stays in `~/.my-father-mother/mfm.db` on your machine.
