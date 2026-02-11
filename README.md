@@ -569,7 +569,7 @@ my--father-mother takes a defense-in-depth approach to clipboard security:
 
 my--father-mother is part of [ORGAN-III (Ergon)](https://github.com/organvm-iii-ergon), the commerce and product organ of the eight-organ creative-institutional system. It sits within a broader ecosystem:
 
-- **ORGAN-I (Theoria)** — The theoretical foundation. The dual-persona architecture (Mother/Moon, Father/Sun) draws on alchemical and archetypal patterns explored in ORGAN-I's epistemological work, particularly the [recursive-engine](https://github.com/organvm-i-theoria/recursive-engine) framework for self-referential systems. The clipboard-as-memory metaphor — treating transient data as a knowledge substrate — reflects ORGAN-I's investigation of how recursive observation creates durable structure.
+- **ORGAN-I (Theoria)** — The theoretical foundation. The dual-persona architecture (Mother/Moon, Father/Sun) draws on alchemical and archetypal patterns explored in ORGAN-I's epistemological work, particularly the [recursive-engine](https://github.com/organvm-i-theoria/recursive-engine--generative-entity) framework for self-referential systems. The clipboard-as-memory metaphor — treating transient data as a knowledge substrate — reflects ORGAN-I's investigation of how recursive observation creates durable structure.
 
 - **ORGAN-IV (Taxis)** — Orchestration and governance. The MCP bridge in my--father-mother is designed to integrate with ORGAN-IV's [agentic-titan](https://github.com/organvm-iv-taxis/agentic-titan) orchestration layer, providing clipboard context as a resource for AI agent workflows. The LaunchAgent-based autostart system mirrors the governance patterns that Taxis applies at the organizational level.
 
