@@ -1,14 +1,26 @@
-# seed.yaml — Automation Contract for ?/?
+# seed.yaml — Automation Contract for organvm-iii-ergon/my--father-mother
 # Schema: seed/v1.0
-# Updated: AUTONOMY Sprint Phase E (orphan resolution)
+# Updated: 2026-02-14 (fixed placeholders, confirmed no back-edges)
 
 schema_version: "1.0"
-organ: ?
-organ_name: ?
-repo: ?
-org: ?
+organ: III
+organ_name: Commerce
+repo: my--father-mother
+org: organvm-iii-ergon
 
 metadata:
+  implementation_status: ACTIVE
+  tier: standard
+  promotion_status: LOCAL
+  last_validated: "2026-02-14"
+  generated: "2026-02-12"
+  sprint: "AUTONOMY"
+
+agents:
+  - name: ci
+    trigger: on_push
+    workflow: .github/workflows/ci-python.yml
+    description: "Continuous integration pipeline"
 
 produces:
   - type: product-artifact
@@ -19,3 +31,11 @@ consumes:
   - type: governance-rules
     source: ORGAN-IV
     description: Commerce operations follow governance policies
+
+subscriptions:
+  - event: governance.updated
+    source: ORGAN-IV
+    action: Check compliance with updated governance rules
+  - event: health-audit.completed
+    source: ORGAN-IV
+    action: Review audit findings for this repo
