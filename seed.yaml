@@ -12,6 +12,9 @@ project:
     package_manager: "pip"
     type: "local-tool"
 
+metadata:
+  promotion_status: CANDIDATE
+
 domain:
   problem_statement: >
     Capture, index, and retrieve transient clipboard data to augment
